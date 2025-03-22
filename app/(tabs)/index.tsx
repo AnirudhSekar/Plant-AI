@@ -183,38 +183,30 @@ export default function MyPlantsScreen() {
     }
   };
 
-  const loadPlants = async () => {
-    try {
-      const storedPlants = await AsyncStorage.getItem('my_plants');
-      if (storedPlants) {
-        const loadedPlants = JSON.parse(storedPlants);
-        setPlants(loadedPlants);
-        
-        // Get all currently scheduled notifications
-        const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync();
-        console.log('Current scheduled notifications:', scheduledNotifications);
-        
-        // Schedule notifications for plants that need them
+// Update your existing loadPlants function
+const loadPlants = async () => {
+  try {
+    const storedPlants = await AsyncStorage.getItem('my_plants');
+    if (storedPlants) {
+      const loadedPlants = JSON.parse(storedPlants);
+      if (Array.isArray(loadedPlants)) {
+        // Ensure all plants have notifications scheduled
         for (const plant of loadedPlants) {
-          const lastWatered = new Date(plant.lastWatered);
-          const nextWatering = addHours(lastWatered, plant.careInstructions.wateringFrequencyHours);
-          const now = new Date();
+          const notifications = await Notifications.getAllScheduledNotificationsAsync();
+          const hasNotification = notifications.some(n => n.identifier === plant.id);
           
-          const timeUntilWatering = nextWatering.getTime() - now.getTime();
-          if (timeUntilWatering > 60000) {
-            const existingNotification = scheduledNotifications.find(n => n.identifier === plant.id);
-            if (!existingNotification) {
-              await scheduleWateringNotification(plant);
-            }
-          } else {
-            console.log(`Skipping notification for ${plant.name} - next watering too soon or in past`);
+          if (!hasNotification) {
+            await scheduleWateringNotification(plant);
           }
         }
+        setPlants(loadedPlants);
       }
-    } catch (error) {
-      console.error('Error loading plants:', error);
     }
-  };
+  } catch (error) {
+    console.error('Error loading plants:', error);
+  }
+};
+  
   const deletePlant = async (plantId: string) => {
     try {
       // Cancel the notification for this plant

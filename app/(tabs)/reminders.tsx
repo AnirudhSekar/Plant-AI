@@ -32,17 +32,51 @@ export default function RemindersScreen() {
     loadPlants();
   }, []);
 
+  useFocusEffect(
+    React.useCallback(() => {
+      loadPlants();
+    }, [])
+  );
+
   const loadPlants = async () => {
     try {
       const storedPlants = await AsyncStorage.getItem('my_plants');
       if (storedPlants) {
         const loadedPlants = JSON.parse(storedPlants);
-        setPlants(loadedPlants);
+        // Ensure plants array is valid
+        if (Array.isArray(loadedPlants)) {
+          // Sort plants by next watering date
+          const sortedPlants = loadedPlants.sort((a, b) => {
+            const aNext = getNextWateringDate(a);
+            const bNext = getNextWateringDate(b);
+            return aNext.getTime() - bNext.getTime();
+          });
+          setPlants(sortedPlants);
+        } else {
+          console.error('Stored plants is not an array:', loadedPlants);
+          setPlants([]);
+        }
       }
     } catch (error) {
       console.error('Error loading plants:', error);
+      setPlants([]);
     }
   };
+  const getNextWateringDate = (plant: Plant) => {
+    try {
+      const lastWateredDate = plant.lastWatered ? 
+        new Date(plant.lastWatered) : 
+        new Date();
+      const minutes = Math.round(plant.careInstructions.wateringFrequencyHours * 60);
+      return addMinutes(lastWateredDate, minutes);
+    } catch (error) {
+      console.error('Error calculating next watering date:', error);
+      return new Date();
+    }
+  };
+  useEffect(() => {
+    console.log('Current plants in state:', plants);
+  }, [plants]);
 
   const getFrequencyText = (hours: number) => {
     if (hours < 1/60) {
